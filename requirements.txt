@@ -1,0 +1,3 @@
+# Sin dependencias: stdlib solamente.
+# truststore es opcional y sólo hace falta detrás de un proxy TLS con CA propia.
+truststore>=0.9 ; platform_system == "Darwin"

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+data/leyes.db
+data/leyes.db-journal
+*.log
+dist/*.png
+dist/w.html

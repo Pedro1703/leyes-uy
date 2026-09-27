@@ -1,0 +1,84 @@
+name: crawl
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # cada 6 horas
+  workflow_dispatch:
+    inputs:
+      budget_minutes:
+        description: "Minutos de crawl antes de cortar"
+        default: "300"
+
+concurrency:
+  group: crawl          # nunca dos crawls simultáneos sobre la misma base
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Traer la base de la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          if gh release download datos --pattern leyes.db.gz --clobber 2>/dev/null; then
+            gunzip -c leyes.db.gz > data/leyes.db
+            echo "base recuperada: $(du -h data/leyes.db | cut -f1)"
+          else
+            echo "no hay base previa; se empieza de cero"
+          fi
+
+      - name: Refrescar índice del Parlamento
+        run: python3 fetch_index.py
+
+      - name: Crawl
+        env:
+          IMPO_DELAY: "1.0"
+          CRAWL_BUDGET_SECONDS: ${{ github.event.inputs.budget_minutes && format('{0}', github.event.inputs.budget_minutes) || '300' }}
+        run: |
+          # el input viene en minutos; el script espera segundos
+          export CRAWL_BUDGET_SECONDS=$(( CRAWL_BUDGET_SECONDS * 60 ))
+          echo "presupuesto: ${CRAWL_BUDGET_SECONDS}s"
+          python3 -u crawl.py all
+
+      - name: Reconstruir datos y página
+        run: |
+          python3 clasificar.py | tail -45
+          python3 build_page.py
+
+      - name: Publicar la base en la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gzip -9 -c data/leyes.db > leyes.db.gz
+          gh release view datos >/dev/null 2>&1 || \
+            gh release create datos --title "Base de normas" \
+              --notes "Base SQLite con el corpus. Se sobrescribe en cada corrida."
+          gh release upload datos leyes.db.gz --clobber
+          echo "subida: $(du -h leyes.db.gz | cut -f1)"
+
+      - name: Commit de los datos derivados
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data/parlamento_1985_2026.csv data/anchors_parlamento.json \
+                     data/clasificado.json dist/mapa.html || true
+          if git diff --cached --quiet; then
+            echo "sin cambios"
+          else
+            N=$(python3 -c "import sqlite3;print(sqlite3.connect('data/leyes.db').execute('SELECT COUNT(*) FROM leyes').fetchone()[0])")
+            git commit -m "crawl: $N normas en la base"
+            git push
+          fi
