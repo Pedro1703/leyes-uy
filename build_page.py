@@ -11,6 +11,8 @@ import clasificar
 # Selección editorial. El puntaje automático sirve para filtrar; la elección
 # final es a mano, porque lo gracioso no es una regex.
 DESTACADAS = [
+    (6450,  "Una de las 804 pensiones graciables que el Parlamento sancionó sólo en 1918. Ese año hubo 1.225 leyes y el 87,5 % fueron pensiones: llegaron en tandas correlativas de hasta 91 leyes seguidas, casi todas a viudas. Era el sistema previsional antes de que existiera un sistema previsional."),
+    (10124, "Decreto Ley 10.124: «CONSEJO DE ESTADO. CREACIÓN». Es la norma que creó el cuerpo que reemplazó al Parlamento cuando Baldomir lo disolvió en 1942. El corpus documenta su propia interrupción."),
     (16037, "El velero escuela Capitán Miranda necesitó 32 leyes distintas para salir del país, una por viaje desde 1987. El Parlamento uruguayo sanciona una ley cada vez que un buque de la Armada zarpa: hay 312 permisos de este tipo."),
     (20186, "El feriado sólo rige para la tripulación de helicóptero. Es un día libre nacional para un gremio que cabe en un ascensor."),
     (20452, "Declara un «feriado laborable». Es decir: un feriado en el que se trabaja."),
@@ -60,6 +62,9 @@ def build():
                            "cat": r["cat"], "nota": nota})
 
     anios = collections.Counter(r["anio"] for r in recs if r["anio"])
+    PEN = "Pensión o recompensa a una persona"
+    pen_anio = collections.Counter(r["anio"] for r in recs
+                                   if r["anio"] and r["cat"] == PEN)
     leyes = [[r["nro"], r["anio"], r["cat"], r["titulo"]] for r in
              sorted(recs, key=lambda r: -r["nro"])]
 
@@ -69,6 +74,7 @@ def build():
         "cats": cats,
         "destacadas": destac,
         "anios": sorted(anios.items()),
+        "pensiones": sorted(pen_anio.items()),
         "leyes": leyes,
         "tipos": dict(tipos),
         "rango": [min(r["anio"] for r in recs if r["anio"]),

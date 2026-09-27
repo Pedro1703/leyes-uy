@@ -66,6 +66,8 @@ h2{font-family:Newsreader,Georgia,serif;font-size:clamp(23px,3.4vw,31px);font-we
 .prose p{margin:0 0 14px}
 .prose strong{color:var(--ink);font-weight:600}
 
+.chartbox{border:1px solid var(--rule);background:var(--surface);box-shadow:var(--shadow);padding:16px 18px 10px}
+.chartbox svg{display:block;width:100%;height:auto;overflow:visible}
 /* treemap */
 #tm{position:relative;width:100%;aspect-ratio:16/8.5;min-height:330px;
   border:1px solid var(--rule);background:var(--surface);box-shadow:var(--shadow)}
@@ -136,10 +138,16 @@ footer a{color:var(--sello)}
 <div class="wrap">
 <header class="top">
   <p class="kicker">Corpus normativo uruguayo · IMPO y Parlamento</p>
-  <h1>Una de cada cinco leyes uruguayas es ponerle nombre a una cosa.</h1>
-  <p class="dek">Entre 1985 y hoy, el 19,7 % de las leyes sancionadas sirve para bautizar una escuela, una ruta o una plaza. Este es el mapa del corpus completo, agrupado por lo que las leyes efectivamente hacen. Hay días nacionales del butiá, del fitomejoramiento y del apicultor. Hay un feriado que rige sólo para las tripulaciones de helicóptero. Hay un feriado laborable.</p>
+  <h1>Casi una de cada cinco leyes uruguayas es una pensión para una persona con nombre y apellido.</h1>
+  <p class="dek">Las 20.516 normas sancionadas en Uruguay entre 1830 y hoy, agrupadas por lo que efectivamente hacen. La categoría más numerosa son las pensiones nominales. La segunda, entre las leyes modernas, es ponerle nombre a una escuela o a una ruta. Y hay días nacionales del butiá, del fitomejoramiento y del apicultor.</p>
   <div class="stats" id="stats"></div>
 </header>
+
+<section>
+  <h2>Doscientos años de sanción</h2>
+  <p class="note">Normas por año. La franja oscura son las pensiones a personas nombradas. En 1918 el Parlamento sancionó 1.225 leyes y el 87,5 % fueron pensiones, en tandas correlativas de hasta 91 leyes seguidas.</p>
+  <div class="chartbox"><svg id="tl" viewBox="0 0 980 260" role="img" aria-label="Normas sancionadas por año, 1830 a 2026"></svg></div>
+</section>
 
 <section>
   <h2>El mapa</h2>
@@ -187,7 +195,7 @@ footer a{color:var(--sello)}
 </section>
 
 <footer>
-  <p><b id="foot-n"></b> Clasificación por reglas sobre el título, con selección editorial para las destacadas. Ninguna ley fue inventada: cada una enlaza a su ficha en IMPO.</p>
+  <p><b id="foot-n"></b> Cobertura del 99,93 %: faltan 14 normas en 196 años, casi todas de las últimas semanas. Clasificación por reglas sobre el título, con selección editorial para las destacadas. Ninguna ley fue inventada: cada una enlaza a su ficha en IMPO.</p>
   <p>Fuentes: <a href="https://www.impo.com.uy/datosabiertos/" target="_blank" rel="noopener">IMPO · Datos Abiertos</a> · <a href="https://catalogodatos.gub.uy/dataset/parlamento-del-uruguay-leyes-promulgadas-del-poder-ejecutivo" target="_blank" rel="noopener">Parlamento · Leyes promulgadas</a>. Datos al 23/09/2026.</p>
 </footer>
 </div>
@@ -203,16 +211,15 @@ const fmt = n => n.toLocaleString("es-UY");
 const impoURL = (nro, anio) => `https://www.impo.com.uy/bases/leyes/${nro}-${anio}`;
 
 /* ---------- cabecera ---------- */
-const NOMBRE = "Le pone nombre a algo";
-const catN = (D.cats.find(c => c.n === NOMBRE) || {v:0}).v;
-const modernas = D.leyes.filter(r => r[1] >= 1985);
-const nombModernas = modernas.filter(r => r[2] === NOMBRE).length;
-const pctMod = modernas.length ? 100*nombModernas/modernas.length : 0;
+const PEN = "Pensión o recompensa a una persona";
+const catP = (D.cats.find(c => c.n === PEN) || {v:0}).v;
+const pctP = 100*catP/D.total;
+const dl = D.tipos["Decreto Ley"] || 0;
 document.getElementById("stats").innerHTML = [
-  [fmt(D.total), "normas relevadas"],
-  [D.rango[0]+"–"+D.rango[1], "período cubierto"],
-  [fmt(catN), "le ponen nombre a algo"],
-  [pctMod.toFixed(1).replace(".",",")+" %", "de las leyes desde 1985"],
+  [fmt(D.total), "normas · 1830 a hoy"],
+  [fmt(catP), "pensiones a una persona"],
+  [pctP.toFixed(1).replace(".",",")+" %", "del corpus entero"],
+  [fmt(dl), "dictadas sin Parlamento"],
 ].map(([b,s]) => `<div class="stat"><b class="tnum">${b}</b><span>${s}</span></div>`).join("");
 document.getElementById("foot-n").textContent =
   `${fmt(D.total)} normas relevadas.`;
@@ -285,6 +292,45 @@ function drawTM(){
     tm.appendChild(el);
   });
 }
+
+/* ---------- línea de tiempo ---------- */
+(function(){
+  const svg = document.getElementById("tl");
+  if(!svg) return;
+  const W=980, H=260, PL=44, PR=14, PT=14, PB=30;
+  const pw=W-PL-PR, ph=H-PT-PB;
+  const tot=new Map(D.anios), pen=new Map(D.pensiones||[]);
+  const y0=D.rango[0], y1=D.rango[1];
+  const maxV=Math.max(...D.anios.map(a=>a[1]));
+  const X=y=>PL+pw*(y-y0)/(y1-y0);
+  const Y=v=>PT+ph*(1-v/maxV);
+  const bw=Math.max(1.4, pw/(y1-y0)-0.6);
+  let out="";
+  [0,300,600,900,1200].forEach(t=>{
+    if(t>maxV) return;
+    out+=`<line x1="${PL}" y1="${Y(t)}" x2="${PL+pw}" y2="${Y(t)}" stroke="var(--grid)"/>`;
+    out+=`<text x="${PL-8}" y="${Y(t)+3.5}" text-anchor="end" font-size="10" fill="var(--ink-3)" font-family="Archivo,sans-serif">${fmt(t)}</text>`;
+  });
+  for(const [y,v] of D.anios){
+    const p=pen.get(y)||0;
+    out+=`<rect x="${(X(y)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(ph-Y(v)+PT).toFixed(1)}" fill="var(--c8)" opacity=".55"><title>${y}: ${fmt(v)} normas, ${fmt(p)} pensiones</title></rect>`;
+    if(p) out+=`<rect x="${(X(y)-bw/2).toFixed(1)}" y="${Y(p).toFixed(1)}" width="${bw.toFixed(1)}" height="${(ph-Y(p)+PT).toFixed(1)}" fill="var(--sello)"/>`;
+  }
+  for(let y=1840; y<=2020; y+=20)
+    out+=`<text x="${X(y)}" y="${H-PB+16}" text-anchor="middle" font-size="10" fill="var(--ink-3)" font-family="Archivo,sans-serif">${y}</text>`;
+  // anotación del pico de 1918
+  const px=X(1918), py=Y(tot.get(1918)||0);
+  out+=`<line x1="${px}" y1="${py-6}" x2="${px+52}" y2="${py-26}" stroke="var(--oro)" stroke-width="1.5"/>`;
+  out+=`<text x="${px+57}" y="${py-23}" font-size="11.5" font-weight="600" fill="var(--oro)" font-family="Archivo,sans-serif">1918: 1.225 normas, 87,5 % pensiones</text>`;
+  // leyenda abajo a la derecha, lejos de la grilla y del pico de 1918
+  const lx = PL + pw - 232, ly = H - PB + 12;
+  out+=`<g font-size="11" font-family="Archivo,sans-serif">`
+     + `<rect x="${lx}" y="${ly-8}" width="9" height="9" fill="var(--sello)"/>`
+     + `<text x="${lx+14}" y="${ly}" fill="var(--ink-2)">pensiones a una persona</text>`
+     + `<rect x="${lx+162}" y="${ly-8}" width="9" height="9" fill="var(--c8)" opacity=".55"/>`
+     + `<text x="${lx+176}" y="${ly}" fill="var(--ink-2)">resto</text></g>`;
+  svg.innerHTML=out;
+})();
 
 /* ---------- listado ---------- */
 const q = document.getElementById("q");
