@@ -41,6 +41,9 @@ jobs:
           fi
 
       - name: Refrescar índice del Parlamento
+        # Si falla se sigue con el CSV commiteado: el índice sólo aporta las
+        # leyes nuevas, no es condición para crawlear el resto.
+        continue-on-error: true
         run: python3 fetch_index.py
 
       - name: Crawl

@@ -15,7 +15,13 @@ DEST = os.path.join(HERE, "data", "parlamento_1985_2026.csv")
 
 
 def main():
-    req = urllib.request.Request(URL, headers={"User-Agent": "leyes-uy/1.0"})
+    # parlamento.gub.uy devuelve 403 a clientes sin cabeceras de navegador
+    req = urllib.request.Request(URL, headers={
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36",
+        "Accept": "text/csv,application/csv,text/plain,*/*",
+        "Accept-Language": "es-UY,es;q=0.9",
+    })
     with urllib.request.urlopen(req, timeout=120, context=_SSL) as r:
         raw = r.read()
     txt = raw.decode("utf-8", errors="replace")
